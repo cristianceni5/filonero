@@ -4,13 +4,16 @@
   "private": true,
   "description": "Backend MVP di FiloNero su Netlify Functions",
   "scripts": {
-    "dev": "netlify dev",
+    "dev": "npx netlify dev",
+    "db:init": "node scripts/apply-sql.js sql/001_init.sql",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit"
   },
   "dependencies": {
     "@netlify/functions": "^5.1.5",
+    "@netlify/neon": "^0.1.2",
     "argon2": "^0.41.1",
+    "dotenv": "^16.6.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1",
     "resend": "^4.0.1",

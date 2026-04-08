@@ -9,44 +9,64 @@ Backend serverless MVP di FiloNero, sviluppato in TypeScript su Netlify Function
 - PostgreSQL (`pg`)
 - Zod (validazione input)
 - Argon2 (hash password)
-- JWT + refresh token random hashato
-- Resend (incapsulato da servizio mail astratto)
+- JWT access token + refresh token random hashato
+- Magic link monouso hashato in DB
+- Resend dietro un servizio mail astratto
 
 ## Requisiti
 
 - Node.js 20+
 - PostgreSQL 14+
-- Netlify CLI (`npm i -g netlify-cli`)
 
-## Setup rapido
+## Setup locale
 
 1. Installa dipendenze:
    - `npm install`
-2. Crea env locale:
+2. Crea file env:
    - copia `.env.example` in `.env`
-3. Inizializza schema DB:
-   - esegui `sql/001_init.sql` sul database PostgreSQL
-4. Avvio locale:
+3. Inizializza lo schema DB:
+   - `npm run db:init`
+4. Avvia in locale:
    - `npm run dev`
+5. Apri pagina debug:
+   - `http://localhost:8888/debug`
 
-Le API saranno disponibili tramite path `/api/*` (rewrite verso `/.netlify/functions/api/*`).
+API disponibili su `/api/*` con rewrite verso `/.netlify/functions/api/*`.
 
-## Deploy su Netlify
+## Debug page (HTML minimale)
 
-1. Configura variabili ambiente in Netlify (`Site settings -> Environment variables`)
-2. Collega il progetto e assicurati che root del sito punti a `backend/`
-3. Deploy:
-   - `netlify deploy --prod`
+Path:
+- `/debug`
+
+La pagina debug permette di testare:
+- register/login
+- magic link request/verify
+- refresh token
+- me/logout
+- lista conversazioni
+- creazione conversazione direct
+- lista messaggi
+- invio messaggio
+- ricerca utenti
+
+## Deploy Netlify
+
+1. Collega repository su Netlify
+2. Imposta **Base directory** a `backend`
+3. Mantieni `netlify.toml` come fonte di verita
+4. Configura env vars da `.env.example` in:
+   - `Site settings -> Environment variables`
+5. Deploy production
 
 ## Endpoint
 
-Tutti gli endpoint MVP sono documentati in:
+Gli esempi JSON sono in:
 - `docs/api-examples.md`
 
-## TODO evolutivi (post-MVP)
+## TODO post-MVP
 
 - Push notifications
 - End-to-end encryption (E2EE)
 - Allegati (immagini/file)
 - Sessioni multi-device avanzate
-- Presenza online/realtime robusto (WebSocket o similar)
+- Presenza online/realtime robusto

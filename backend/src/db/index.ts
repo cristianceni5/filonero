@@ -1,7 +1,12 @@
-import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
+import { Pool, types, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 import { env } from "../config/env";
 
 const useSsl = env.DATABASE_SSL || env.NODE_ENV === "production";
+const TIMESTAMPTZ_OID = 1184;
+const TIMESTAMP_OID = 1114;
+
+types.setTypeParser(TIMESTAMPTZ_OID, (value) => new Date(value));
+types.setTypeParser(TIMESTAMP_OID, (value) => new Date(`${value}Z`));
 
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,

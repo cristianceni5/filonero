@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FiloNero Debug</title>
+  </head>
+  <body>
+    <header>
+      <h1>FiloNero Backend Debug</h1>
+      <p>Client HTML minimale per collaudare auth + chat.</p>
+    </header>
+
+    <main>
+      <section id="authSection">
+        <h2>Schermata Login / Registrazione</h2>
+
+        <article>
+          <h3>Registrazione</h3>
+          <form id="registerForm">
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" minlength="8" required />
+            </label>
+            <label>
+              Nickname
+              <input name="nickname" type="text" minlength="3" required />
+            </label>
+            <button type="submit">Registrati</button>
+          </form>
+        </article>
+
+        <article>
+          <h3>Login</h3>
+          <form id="loginForm">
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" minlength="8" required />
+            </label>
+            <button type="submit">Accedi</button>
+          </form>
+        </article>
+
+        <article>
+          <h3>Magic Link</h3>
+          <form id="magicRequestForm">
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+            <button type="submit">Richiedi magic link</button>
+          </form>
+          <form id="magicVerifyForm">
+            <label>
+              Token magic link
+              <input name="token" type="text" required />
+            </label>
+            <button type="submit">Verifica magic link</button>
+          </form>
+        </article>
+      </section>
+
+      <section id="appSection" hidden>
+        <h2>Struttura Chat (tipo WhatsApp, senza stile)</h2>
+
+        <article>
+          <h3>Sessione</h3>
+          <p id="sessionInfo">Nessuna sessione attiva</p>
+          <button id="refreshBtn" type="button">Refresh session</button>
+          <button id="loadMeBtn" type="button">Carica profilo (me)</button>
+          <button id="logoutBtn" type="button">Logout</button>
+        </article>
+
+        <article>
+          <h3>Profilo Utente Loggato</h3>
+          <pre id="meOutput">{}</pre>
+        </article>
+
+        <article>
+          <h3>Crea Conversazione Direct</h3>
+          <form id="createConversationForm">
+            <label>
+              Other User ID
+              <input name="otherUserId" type="text" required />
+            </label>
+            <button type="submit">Crea/Apri direct</button>
+          </form>
+        </article>
+
+        <article>
+          <h3>Ricerca Utenti</h3>
+          <form id="searchUsersForm">
+            <label>
+              Query nickname
+              <input name="q" type="text" required />
+            </label>
+            <button type="submit">Cerca</button>
+          </form>
+          <ul id="searchResults"></ul>
+        </article>
+
+        <section>
+          <h3>Lista Conversazioni</h3>
+          <button id="loadConversationsBtn" type="button">Aggiorna conversazioni</button>
+          <ul id="conversationsList"></ul>
+        </section>
+
+        <section>
+          <h3>Area Messaggi Conversazione Selezionata</h3>
+          <p id="selectedConversationInfo">Nessuna conversazione selezionata</p>
+          <button id="loadMessagesBtn" type="button">Carica messaggi</button>
+          <ol id="messagesList"></ol>
+          <form id="sendMessageForm">
+            <label>
+              Nuovo messaggio
+              <input name="body" type="text" required />
+            </label>
+            <button type="submit">Invia messaggio</button>
+          </form>
+        </section>
+      </section>
+
+      <section>
+        <h2>Log / Debug</h2>
+        <pre id="logOutput"></pre>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        const STORAGE_KEYS = {
+          accessToken: "filonero_debug_access_token",
+          refreshToken: "filonero_debug_refresh_token",
+          conversationId: "filonero_debug_conversation_id"
+        };
+
+        const state = {
+          accessToken: localStorage.getItem(STORAGE_KEYS.accessToken),
+          refreshToken: localStorage.getItem(STORAGE_KEYS.refreshToken),
+          currentConversationId: localStorage.getItem(STORAGE_KEYS.conversationId),
+          me: null
+        };
+
+        const els = {
+          authSection: document.getElementById("authSection"),
+          appSection: document.getElementById("appSection"),
+          logOutput: document.getElementById("logOutput"),
+          sessionInfo: document.getElementById("sessionInfo"),
+          meOutput: document.getElementById("meOutput"),
+          conversationsList: document.getElementById("conversationsList"),
+          selectedConversationInfo: document.getElementById("selectedConversationInfo"),
+          messagesList: document.getElementById("messagesList"),
+          searchResults: document.getElementById("searchResults"),
+          registerForm: document.getElementById("registerForm"),
+          loginForm: document.getElementById("loginForm"),
+          magicRequestForm: document.getElementById("magicRequestForm"),
+          magicVerifyForm: document.getElementById("magicVerifyForm"),
+          createConversationForm: document.getElementById("createConversationForm"),
+          searchUsersForm: document.getElementById("searchUsersForm"),
+          sendMessageForm: document.getElementById("sendMessageForm"),
+          loadConversationsBtn: document.getElementById("loadConversationsBtn"),
+          loadMessagesBtn: document.getElementById("loadMessagesBtn"),
+          refreshBtn: document.getElementById("refreshBtn"),
+          loadMeBtn: document.getElementById("loadMeBtn"),
+          logoutBtn: document.getElementById("logoutBtn")
+        };
+
+        function log(title, payload) {
+          const line = `[${new Date().toISOString()}] ${title}`;
+          const text = payload === undefined ? line : `${line}\n${JSON.stringify(payload, null, 2)}`;
+          els.logOutput.textContent = `${text}\n\n${els.logOutput.textContent}`.slice(0, 50000);
+        }
+
+        function setTokens(accessToken, refreshToken) {
+          state.accessToken = accessToken || null;
+          state.refreshToken = refreshToken || null;
+
+          if (state.accessToken) {
+            localStorage.setItem(STORAGE_KEYS.accessToken, state.accessToken);
+          } else {
+            localStorage.removeItem(STORAGE_KEYS.accessToken);
+          }
+
+          if (state.refreshToken) {
+            localStorage.setItem(STORAGE_KEYS.refreshToken, state.refreshToken);
+          } else {
+            localStorage.removeItem(STORAGE_KEYS.refreshToken);
+          }
+
+          renderSessionInfo();
+        }
+
+        function clearSession() {
+          state.me = null;
+          setTokens(null, null);
+          setCurrentConversation(null);
+          els.meOutput.textContent = "{}";
+          els.conversationsList.textContent = "";
+          els.messagesList.textContent = "";
+          els.searchResults.textContent = "";
+          renderAuthState();
+        }
+
+        function setCurrentConversation(conversationId) {
+          state.currentConversationId = conversationId || null;
+          if (state.currentConversationId) {
+            localStorage.setItem(STORAGE_KEYS.conversationId, state.currentConversationId);
+          } else {
+            localStorage.removeItem(STORAGE_KEYS.conversationId);
+          }
+          els.selectedConversationInfo.textContent = state.currentConversationId
+            ? `Conversazione selezionata: ${state.currentConversationId}`
+            : "Nessuna conversazione selezionata";
+        }
+
+        function renderSessionInfo() {
+          els.sessionInfo.textContent = JSON.stringify(
+            {
+              hasAccessToken: Boolean(state.accessToken),
+              hasRefreshToken: Boolean(state.refreshToken),
+              currentConversationId: state.currentConversationId
+            },
+            null,
+            2
+          );
+        }
+
+        function renderAuthState() {
+          const authenticated = Boolean(state.accessToken || state.refreshToken);
+          els.appSection.hidden = !authenticated;
+          els.authSection.hidden = authenticated;
+          renderSessionInfo();
+        }
+
+        async function apiRequest(path, options) {
+          const config = options || {};
+          const method = config.method || "GET";
+          const auth = Boolean(config.auth);
+          const retryOnUnauthorized = config.retryOnUnauthorized !== false;
+
+          const headers = {
+            Accept: "application/json"
+          };
+
+          if (config.body !== undefined) {
+            headers["Content-Type"] = "application/json";
+          }
+
+          if (auth && state.accessToken) {
+            headers.Authorization = `Bearer ${state.accessToken}`;
+          }
+
+          const payload = config.body !== undefined ? JSON.stringify(config.body) : undefined;
+          log(`REQUEST ${method} ${path}`, config.body);
+
+          const response = await fetch(path, {
+            method,
+            headers,
+            body: payload
+          });
+
+          const rawText = await response.text();
+          const data = rawText ? safeJsonParse(rawText) : null;
+          log(`RESPONSE ${response.status} ${method} ${path}`, data ?? rawText);
+
+          if (
+            response.status === 401 &&
+            auth &&
+            retryOnUnauthorized &&
+            state.refreshToken &&
+            path !== "/api/auth/refresh"
+          ) {
+            const refreshed = await refreshTokens();
+            if (refreshed) {
+              return apiRequest(path, {
+                ...config,
+                retryOnUnauthorized: false
+              });
+            }
+          }
+
+          if (!response.ok) {
+            const error = new Error((data && data.error && data.error.message) || `HTTP ${response.status}`);
+            error.response = data;
+            throw error;
+          }
+
+          return data;
+        }
+
+        function safeJsonParse(raw) {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return { raw };
+          }
+        }
+
+        async function refreshTokens() {
+          if (!state.refreshToken) {
+            return false;
+          }
+
+          try {
+            const result = await apiRequest("/api/auth/refresh", {
+              method: "POST",
+              body: { refreshToken: state.refreshToken },
+              auth: false,
+              retryOnUnauthorized: false
+            });
+
+            setTokens(result.session.accessToken, result.session.refreshToken);
+            state.me = result.user || state.me;
+            if (state.me) {
+              els.meOutput.textContent = JSON.stringify(state.me, null, 2);
+            }
+            return true;
+          } catch (error) {
+            log("Refresh fallito", error.response || error.message);
+            clearSession();
+            return false;
+          }
+        }
+
+        async function loadMe() {
+          const result = await apiRequest("/api/auth/me", { auth: true });
+          state.me = result.user;
+          els.meOutput.textContent = JSON.stringify(result.user, null, 2);
+          return result.user;
+        }
+
+        async function loadConversations() {
+          const result = await apiRequest("/api/conversations", { auth: true });
+          renderConversations(result.conversations || []);
+        }
+
+        function renderConversations(conversations) {
+          els.conversationsList.textContent = "";
+
+          conversations.forEach((conversation) => {
+            const li = document.createElement("li");
+            const openButton = document.createElement("button");
+            openButton.type = "button";
+            openButton.textContent = `${conversation.id} | membri: ${
+              (conversation.members || []).map((member) => member.nickname).join(", ") || "-"
+            }`;
+            openButton.addEventListener("click", async function () {
+              setCurrentConversation(conversation.id);
+              await loadConversationDetails(conversation.id);
+              await loadMessages();
+            });
+            li.appendChild(openButton);
+            els.conversationsList.appendChild(li);
+          });
+
+          if (conversations.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "Nessuna conversazione";
+            els.conversationsList.appendChild(li);
+          }
+        }
+
+        async function loadConversationDetails(conversationId) {
+          const result = await apiRequest(`/api/conversations/${conversationId}`, { auth: true });
+          const members = (result.conversation.members || []).map((member) => member.nickname).join(", ");
+          els.selectedConversationInfo.textContent = `Conversazione: ${conversationId}\nMembri: ${members || "-"}`;
+        }
+
+        async function loadMessages() {
+          if (!state.currentConversationId) {
+            throw new Error("Seleziona una conversazione prima di caricare i messaggi");
+          }
+
+          const result = await apiRequest(`/api/conversations/${state.currentConversationId}/messages?limit=50`, {
+            auth: true
+          });
+
+          renderMessages(result.messages || []);
+        }
+
+        function renderMessages(messages) {
+          els.messagesList.textContent = "";
+
+          messages.forEach((message) => {
+            const li = document.createElement("li");
+            li.textContent = `[${message.createdAt}] ${message.senderNickname} (${message.senderUserId}): ${message.body}`;
+            els.messagesList.appendChild(li);
+          });
+
+          if (messages.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "Nessun messaggio";
+            els.messagesList.appendChild(li);
+          }
+        }
+
+        async function searchUsers(q) {
+          const result = await apiRequest(`/api/users/search?q=${encodeURIComponent(q)}`, { auth: true });
+          els.searchResults.textContent = "";
+
+          (result.users || []).forEach((user) => {
+            const li = document.createElement("li");
+            const text = document.createElement("span");
+            text.textContent = `${user.nickname} (${user.id})`;
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = "Apri direct";
+            button.addEventListener("click", async function () {
+              await createConversation(user.id);
+            });
+            li.appendChild(text);
+            li.appendChild(document.createTextNode(" "));
+            li.appendChild(button);
+            els.searchResults.appendChild(li);
+          });
+
+          if (!result.users || result.users.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "Nessun utente trovato";
+            els.searchResults.appendChild(li);
+          }
+        }
+
+        async function createConversation(otherUserId) {
+          const result = await apiRequest("/api/conversations", {
+            method: "POST",
+            auth: true,
+            body: { otherUserId }
+          });
+
+          setCurrentConversation(result.conversation.id);
+          await loadConversations();
+          await loadMessages();
+        }
+
+        async function sendMessage(body) {
+          if (!state.currentConversationId) {
+            throw new Error("Seleziona una conversazione prima di inviare messaggi");
+          }
+
+          await apiRequest(`/api/conversations/${state.currentConversationId}/messages`, {
+            method: "POST",
+            auth: true,
+            body: { body }
+          });
+
+          await loadMessages();
+          await loadConversations();
+        }
+
+        async function logout() {
+          try {
+            await apiRequest("/api/auth/logout", {
+              method: "POST",
+              auth: true,
+              body: {
+                refreshToken: state.refreshToken || undefined
+              }
+            });
+          } catch (error) {
+            log("Logout con errore (proseguo con clear locale)", error.response || error.message);
+          }
+
+          clearSession();
+        }
+
+        function formToObject(formElement) {
+          const formData = new FormData(formElement);
+          return Object.fromEntries(formData.entries());
+        }
+
+        els.registerForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          try {
+            const payload = formToObject(els.registerForm);
+            const result = await apiRequest("/api/auth/register", {
+              method: "POST",
+              body: payload
+            });
+            setTokens(result.session.accessToken, result.session.refreshToken);
+            await loadMe();
+            await loadConversations();
+            renderAuthState();
+          } catch (error) {
+            log("Errore registrazione", error.response || error.message);
+            alert((error.response && error.response.error && error.response.error.message) || error.message);
+          }
+        });
+
+        els.loginForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          try {
+            const payload = formToObject(els.loginForm);
+            const result = await apiRequest("/api/auth/login", {
+              method: "POST",
+              body: payload
+            });
+            setTokens(result.session.accessToken, result.session.refreshToken);
+            await loadMe();
+            await loadConversations();
+            renderAuthState();
+          } catch (error) {
+            log("Errore login", error.response || error.message);
+            alert((error.response && error.response.error && error.response.error.message) || error.message);
+          }
+        });
+
+        els.magicRequestForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          try {
+            const payload = formToObject(els.magicRequestForm);
+            const result = await apiRequest("/api/auth/magic-link/request", {
+              method: "POST",
+              body: payload
+            });
+            alert(result.message || "Richiesta inviata");
+          } catch (error) {
+            log("Errore richiesta magic link", error.response || error.message);
+            alert((error.response && error.response.error && error.response.error.message) || error.message);
+          }
+        });
+
+        els.magicVerifyForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          try {
+            const payload = formToObject(els.magicVerifyForm);
+            const result = await apiRequest("/api/auth/magic-link/verify", {
+              method: "POST",
+              body: payload
+            });
+            setTokens(result.session.accessToken, result.session.refreshToken);
+            await loadMe();
+            await loadConversations();
+            renderAuthState();
+          } catch (error) {
+            log("Errore verifica magic link", error.response || error.message);
+            alert((error.response && error.response.error && error.response.error.message) || error.message);
+          }
+        });
+
+        els.createConversationForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          try {
+            const payload = formToObject(els.createConversationForm);
+            await createConversation(payload.otherUserId);
+          } catch (error) {
+            log("Errore creazione conversazione", error.response || error.message);
+            alert((error.response && error.response.error && error.response.error.message) || error.message);
+          }
+        });
+
+        els.searchUsersForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          try {
+            const payload = formToObject(els.searchUsersForm);
+            await searchUsers(payload.q);
+          } catch (error) {
+            log("Errore ricerca utenti", error.response || error.message);
+            alert((error.response && error.response.error && error.response.error.message) || error.message);
+          }
+        });
+
+        els.sendMessageForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          try {
+            const payload = formToObject(els.sendMessageForm);
+            await sendMessage(payload.body);
+            els.sendMessageForm.reset();
+          } catch (error) {
+            log("Errore invio messaggio", error.response || error.message);
+            alert((error.response && error.response.error && error.response.error.message) || error.message);
+          }
+        });
+
+        els.loadConversationsBtn.addEventListener("click", async function () {
+          try {
+            await loadConversations();
+          } catch (error) {
+            log("Errore load conversations", error.response || error.message);
+          }
+        });
+
+        els.loadMessagesBtn.addEventListener("click", async function () {
+          try {
+            await loadMessages();
+          } catch (error) {
+            log("Errore load messages", error.response || error.message);
+          }
+        });
+
+        els.refreshBtn.addEventListener("click", async function () {
+          await refreshTokens();
+        });
+
+        els.loadMeBtn.addEventListener("click", async function () {
+          try {
+            await loadMe();
+          } catch (error) {
+            log("Errore load me", error.response || error.message);
+          }
+        });
+
+        els.logoutBtn.addEventListener("click", async function () {
+          await logout();
+        });
+
+        async function bootstrap() {
+          renderAuthState();
+          setCurrentConversation(state.currentConversationId);
+          log("Bootstrap", {
+            hasAccessToken: Boolean(state.accessToken),
+            hasRefreshToken: Boolean(state.refreshToken),
+            currentConversationId: state.currentConversationId
+          });
+
+          if (!state.accessToken && state.refreshToken) {
+            await refreshTokens();
+          }
+
+          if (state.accessToken) {
+            try {
+              await loadMe();
+              await loadConversations();
+              if (state.currentConversationId) {
+                await loadConversationDetails(state.currentConversationId);
+                await loadMessages();
+              }
+              renderAuthState();
+            } catch (error) {
+              log("Sessione non valida in bootstrap", error.response || error.message);
+              clearSession();
+            }
+          }
+        }
+
+        bootstrap();
+      })();
+    </script>
+  </body>
+</html>

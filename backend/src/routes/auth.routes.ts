@@ -26,6 +26,7 @@ import {
   requestMagicLinkSchema,
   verifyMagicLinkSchema
 } from "../validation/auth.validation";
+import { requireAuthenticatedSession } from "../utils/require-auth";
 import type { RouteDefinition } from "./types";
 
 const MAGIC_LINK_RESPONSE = {
@@ -145,7 +146,7 @@ export const authRoutes: RouteDefinition[] = [
     method: "GET",
     pattern: /^\/auth\/me$/,
     handler: async ({ event }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const user = await getMe(access.sub);
       return jsonResponse(event, 200, { user });
     }

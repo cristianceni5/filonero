@@ -1,7 +1,7 @@
 import { ApiError } from "../lib/errors";
 import { jsonResponse, parseJsonBody, parseQuery } from "../lib/http";
 import { findPublicUserById, searchUsers, updateMyProfile } from "../services/users.service";
-import { requireAccessToken } from "../utils/auth-context";
+import { requireAuthenticatedSession } from "../utils/require-auth";
 import { uuidSchema } from "../validation/common.validation";
 import { searchUsersQuerySchema, updateMeSchema } from "../validation/users.validation";
 import type { RouteDefinition } from "./types";
@@ -11,7 +11,7 @@ export const usersRoutes: RouteDefinition[] = [
     method: "GET",
     pattern: /^\/users\/search$/,
     handler: async ({ event }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const query = parseQuery(event, searchUsersQuerySchema);
 
       const users = await searchUsers({
@@ -28,7 +28,7 @@ export const usersRoutes: RouteDefinition[] = [
     pattern: /^\/users\/([0-9a-fA-F-]{36})$/,
     paramNames: ["id"],
     handler: async ({ event, params }) => {
-      requireAccessToken(event);
+      await requireAuthenticatedSession(event);
 
       const parsedId = uuidSchema.safeParse(params.id);
       if (!parsedId.success) {
@@ -47,7 +47,7 @@ export const usersRoutes: RouteDefinition[] = [
     method: "PATCH",
     pattern: /^\/users\/me$/,
     handler: async ({ event }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const input = parseJsonBody(event, updateMeSchema);
       const user = await updateMyProfile(access.sub, input);
       return jsonResponse(event, 200, {

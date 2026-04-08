@@ -6,12 +6,12 @@ import {
   listConversationsForUser
 } from "../services/conversations.service";
 import { listMessagesByConversation, sendMessageToConversation } from "../services/messages.service";
-import { requireAccessToken } from "../utils/auth-context";
 import {
   conversationParamsSchema,
   createConversationSchema
 } from "../validation/conversations.validation";
 import { listMessagesQuerySchema, messageBodySchema } from "../validation/messages.validation";
+import { requireAuthenticatedSession } from "../utils/require-auth";
 import type { RouteDefinition } from "./types";
 
 function parseConversationId(rawId: string): string {
@@ -28,7 +28,7 @@ export const conversationsRoutes: RouteDefinition[] = [
     method: "GET",
     pattern: /^\/conversations$/,
     handler: async ({ event }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const conversations = await listConversationsForUser(access.sub);
       return jsonResponse(event, 200, { conversations });
     }
@@ -37,7 +37,7 @@ export const conversationsRoutes: RouteDefinition[] = [
     method: "POST",
     pattern: /^\/conversations$/,
     handler: async ({ event }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const input = parseJsonBody(event, createConversationSchema);
       const conversation = await createOrGetDirectConversation(access.sub, input.otherUserId);
       return jsonResponse(event, 201, { conversation });
@@ -48,7 +48,7 @@ export const conversationsRoutes: RouteDefinition[] = [
     pattern: /^\/conversations\/([0-9a-fA-F-]{36})$/,
     paramNames: ["id"],
     handler: async ({ event, params }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const conversationId = parseConversationId(params.id);
       const conversation = await getConversationForUser(access.sub, conversationId);
       return jsonResponse(event, 200, { conversation });
@@ -59,7 +59,7 @@ export const conversationsRoutes: RouteDefinition[] = [
     pattern: /^\/conversations\/([0-9a-fA-F-]{36})\/messages$/,
     paramNames: ["id"],
     handler: async ({ event, params }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const conversationId = parseConversationId(params.id);
 
       // Membership and existence check.
@@ -81,7 +81,7 @@ export const conversationsRoutes: RouteDefinition[] = [
     pattern: /^\/conversations\/([0-9a-fA-F-]{36})\/messages$/,
     paramNames: ["id"],
     handler: async ({ event, params }) => {
-      const access = requireAccessToken(event);
+      const access = await requireAuthenticatedSession(event);
       const conversationId = parseConversationId(params.id);
 
       // Membership and existence check.
