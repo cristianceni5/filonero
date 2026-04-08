@@ -173,9 +173,40 @@
           logoutBtn: document.getElementById("logoutBtn")
         };
 
+        function isSensitiveKey(key) {
+          const k = String(key || "").toLowerCase();
+          return (
+            k.includes("password") ||
+            k.includes("token") ||
+            k.includes("secret") ||
+            k.includes("authorization")
+          );
+        }
+
+        function sanitizeForLog(value, currentKey) {
+          if (isSensitiveKey(currentKey)) {
+            return "[REDACTED]";
+          }
+
+          if (Array.isArray(value)) {
+            return value.map((item) => sanitizeForLog(item));
+          }
+
+          if (value && typeof value === "object") {
+            const output = {};
+            Object.keys(value).forEach((key) => {
+              output[key] = sanitizeForLog(value[key], key);
+            });
+            return output;
+          }
+
+          return value;
+        }
+
         function log(title, payload) {
           const line = `[${new Date().toISOString()}] ${title}`;
-          const text = payload === undefined ? line : `${line}\n${JSON.stringify(payload, null, 2)}`;
+          const safePayload = payload === undefined ? undefined : sanitizeForLog(payload);
+          const text = safePayload === undefined ? line : `${line}\n${JSON.stringify(safePayload, null, 2)}`;
           els.logOutput.textContent = `${text}\n\n${els.logOutput.textContent}`.slice(0, 50000);
         }
 

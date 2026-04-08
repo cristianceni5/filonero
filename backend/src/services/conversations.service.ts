@@ -141,7 +141,8 @@ export async function listConversationsForUser(userId: string, db: DbClient = po
     ) lm ON TRUE
     GROUP BY c.id, c.type, c.created_at, lm.id, lm.sender_user_id, lm.body, lm.created_at
     ORDER BY COALESCE(lm.created_at, c.created_at) DESC
-    `
+    `,
+    [userId]
   );
 
   return result.rows.map(mapConversationRow);

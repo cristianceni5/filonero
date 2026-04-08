@@ -33,6 +33,13 @@ const MAGIC_LINK_RESPONSE = {
   message: "Se l'email e registrata, riceverai un link di accesso tra pochi istanti."
 };
 
+const MAGIC_LINK_DISABLED_RESPONSE = {
+  error: {
+    code: "FEATURE_DISABLED",
+    message: "Magic link temporaneamente disabilitato"
+  }
+};
+
 function requireRateLimit(action: "register" | "login" | "magic", ip: string | null): void {
   const source = ip ?? "unknown";
   const key = `${action}:${source}`;
@@ -85,16 +92,13 @@ export const authRoutes: RouteDefinition[] = [
     method: "POST",
     pattern: /^\/auth\/magic-link\/request$/,
     handler: async ({ event }) => {
-      const input = parseJsonBody(event, requestMagicLinkSchema);
-      requireRateLimit("magic", getClientIp(event));
-
-      try {
-        await requestMagicLink(input);
-      } catch (error) {
-        // Keep uniform response even if sending fails.
-        console.error("Magic link request failed", error);
+      if (!env.AUTH_MAGIC_LINK_ENABLED) {
+        return jsonResponse(event, 503, MAGIC_LINK_DISABLED_RESPONSE);
       }
 
+      const input = parseJsonBody(event, requestMagicLinkSchema);
+      requireRateLimit("magic", getClientIp(event));
+      await requestMagicLink(input);
       return jsonResponse(event, 200, MAGIC_LINK_RESPONSE);
     }
   },
@@ -102,8 +106,11 @@ export const authRoutes: RouteDefinition[] = [
     method: "POST",
     pattern: /^\/auth\/magic-link\/verify$/,
     handler: async ({ event }) => {
-      const input = parseJsonBody(event, verifyMagicLinkSchema);
+      if (!env.AUTH_MAGIC_LINK_ENABLED) {
+        return jsonResponse(event, 503, MAGIC_LINK_DISABLED_RESPONSE);
+      }
 
+      const input = parseJsonBody(event, verifyMagicLinkSchema);
       const result = await verifyMagicLinkAndCreateSession(input, {
         userAgent: getUserAgent(event),
         ipAddress: getClientIp(event)

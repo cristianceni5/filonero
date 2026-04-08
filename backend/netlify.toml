@@ -12,6 +12,11 @@
   force = true
 
 [[redirects]]
+  from = "/"
+  to = "/debug/index.html"
+  status = 200
+
+[[redirects]]
   from = "/debug"
   to = "/debug/index.html"
   status = 200

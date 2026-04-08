@@ -20,6 +20,10 @@ const envSchema = z.object({
   RATE_LIMIT_MAX_REGISTER: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_MAX_LOGIN: z.coerce.number().int().positive().default(20),
   RATE_LIMIT_MAX_MAGIC_LINK: z.coerce.number().int().positive().default(10),
+  AUTH_MAGIC_LINK_ENABLED: z
+    .union([z.literal("true"), z.literal("false")])
+    .optional()
+    .transform((value) => (value ? value === "true" : undefined)),
   LOG_REQUESTS: z
     .union([z.literal("true"), z.literal("false")])
     .optional()
@@ -40,6 +44,7 @@ const base = parsed.data;
 
 export const env = {
   ...base,
+  AUTH_MAGIC_LINK_ENABLED: base.AUTH_MAGIC_LINK_ENABLED ?? false,
   LOG_REQUESTS: base.LOG_REQUESTS ?? base.NODE_ENV !== "production",
   CORS_ALLOWED_ORIGINS_LIST: base.CORS_ALLOWED_ORIGINS.split(",")
     .map((item) => item.trim())
