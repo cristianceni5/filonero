@@ -1,0 +1,3 @@
+[submodule "filonero-app"]
+	path = filonero-app
+	url = https://github.com/cristianceni5/filonero-app.git
