@@ -1,0 +1,28 @@
+{
+  "name": "filonero-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend MVP di FiloNero su Netlify Functions",
+  "scripts": {
+    "dev": "netlify dev",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@netlify/functions": "^5.1.5",
+    "argon2": "^0.41.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "resend": "^4.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^22.10.1",
+    "@types/pg": "^8.11.11",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
